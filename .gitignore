@@ -50,6 +50,44 @@ web_modules/
 # Optional npm cache directory
 .npm
 
+# ==== Generated / cache files to ignore ====
+# Lock files
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+
+# Expo caches
+.expo/
+.expo/*
+
+# EAS build caches
+.eas/
+.eas.build?
+
+# iOS derived data
+DerivedData/
+*.xcworkspace/
+*.xcproject
+*.xcodeproj
+Pods/
+Podfile.lock
+
+# Android build artifacts
+android/build/
+android/.gradle/
+*.keystore
+debug.keystore
+
+# Metro bundler cache
+node_modules/metro-cache/
+node_modules/metro-cache-*/
+
+# Miscellaneous caches
+.next/
+dist/
+.cache/
+*/node_modules/.cache/
+
 # Optional eslint cache
 .eslintcache
 
@@ -137,3 +175,8 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Ignore generated lock files
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
