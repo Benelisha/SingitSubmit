@@ -28,7 +28,14 @@ export function GameStackNavigator() {
       initialRouteName="HomeTabs"
       >
        <Stack.Screen name="HomeTabs" component={HomeTabsNavigator} />
-       <Stack.Screen name="GameScreen" component={GameScreen} />
+         <Stack.Screen
+           name="GameScreen"
+           component={GameScreen}
+           options={{
+             gestureEnabled: false,
+             fullScreenGestureEnabled: false,
+           }}
+         />
       </Stack.Navigator>
     )
 }
