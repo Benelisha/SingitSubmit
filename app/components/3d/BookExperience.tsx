@@ -1,28 +1,25 @@
 import React, { Suspense, useRef } from "react"
 import { useFrame, useThree } from "@react-three/fiber"
 import { easing } from "maath"
-import { Book } from "./Book"
+import { Book, BookSheet } from "./Book"
 import { useBookPage } from "./BookPageContext"
-import { BOOK_SHEETS } from "./BookContent"
 
 // Smoothly moves the camera between the tilted cover view and the flat page view.
+// X is always 0 — we rely purely on Y/Z shift + tilt to frame the closed book.
 const CameraRig = ({ page, totalPages }: { page: number; totalPages: number }) => {
   const { camera } = useThree()
   useFrame((_, delta) => {
-    const isCover = page === 0
-    const isBack = page === totalPages
-    const isBookClosed = isCover || isBack
-    const targetX = isCover ? -1 : isBack ? 1 : 0
+    const isBookClosed = page === 0 || page === totalPages
     const targetY = isBookClosed ? 1 : 0
     const targetZ = isBookClosed ? 4 : 2.5
-    easing.damp3(camera.position, [targetX, targetY, targetZ], 0.4, delta)
+    easing.damp3(camera.position, [0, targetY, targetZ], 0.4, delta)
     camera.lookAt(0, 0, 0)
   })
   return null
 }
 
 // Wraps the book, animating the tilt and a gentle float bob on cover/back only.
-const BookWrapper = ({ isBookClosed }: { isBookClosed: boolean }) => {
+const BookWrapper = ({ isBookClosed, sheets }: { isBookClosed: boolean; sheets: BookSheet[] }) => {
   const groupRef = useRef<any>(null)
   useFrame((state, delta) => {
     if (!groupRef.current) return
@@ -37,7 +34,7 @@ const BookWrapper = ({ isBookClosed }: { isBookClosed: boolean }) => {
   return (
     <group ref={groupRef} rotation-y={Math.PI}>
       <Suspense fallback={null}>
-        <Book />
+        <Book sheets={sheets} />
       </Suspense>
     </group>
   )
@@ -47,9 +44,9 @@ const BookWrapper = ({ isBookClosed }: { isBookClosed: boolean }) => {
  * 3-D scene setup: lighting + book.
  * Drop this inside a <Canvas> with shadows enabled.
  */
-export const BookExperience = () => {
+export const BookExperience = ({ sheets }: { sheets: BookSheet[] }) => {
   const { page } = useBookPage()
-  const isBookClosed = page === 0 || page === BOOK_SHEETS.length
+  const isBookClosed = page === 0 || page === sheets.length
 
   return (
     <>
@@ -76,10 +73,10 @@ export const BookExperience = () => {
       </mesh>
 
       {/* Camera animation rig */}
-      <CameraRig page={page} totalPages={BOOK_SHEETS.length} />
+      <CameraRig page={page} totalPages={sheets.length} />
 
       {/* Animated book wrapper */}
-      <BookWrapper isBookClosed={isBookClosed} />
+      <BookWrapper isBookClosed={isBookClosed} sheets={sheets} />
     </>
   )
 }

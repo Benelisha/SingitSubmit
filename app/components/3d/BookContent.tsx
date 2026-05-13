@@ -18,8 +18,8 @@ import { useBookPage } from "./BookPageContext"
 // ─── Pre-resolve asset URIs at module load time ───────────────────────────────
 // In Expo, require() returns a numeric module ID; Asset.fromModule() gives us
 // the real URI string that useTexture (Three.js TextureLoader) can fetch.
-const LOGO_URI = Asset.fromModule(require("../../../assets/images/logo.png")).uri
-const WELCOME_URI = Asset.fromModule(require("../../../assets/images/welcome-face.png")).uri
+export const LOGO_URI = Asset.fromModule(require("../../../assets/images/logo.png")).uri
+export const WELCOME_URI = Asset.fromModule(require("../../../assets/images/welcome-face.png")).uri
 
 // Camera parameters that give a ~1.44 × 1.92 viewport at z=0
 // which maps closely onto the 1.28 × 1.71 page leaf.
@@ -362,6 +362,7 @@ export const BackCoverPage = () => {
 }
 
 // ─── BOOK_SHEETS ─────────────────────────────────────────────────────────────
+// Kept here only as a reference export; primary definition lives in StoryScreen.
 // 4 page leaves → page states 0 (cover closed) … 4 (back cover).
 // frontContent = face visible when leaf is NOT yet turned (right side of spread)
 // backContent  = face visible when leaf IS turned   (left side of spread)

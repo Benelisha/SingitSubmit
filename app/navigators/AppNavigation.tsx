@@ -4,7 +4,6 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack"
 import Config from "@/config"
 import { ErrorBoundary } from "@/screens/ErrorScreen/ErrorBoundary"
 import { useAppTheme } from "@/theme/context"
-import StepsScreen from "@/screens/StepsScreen"
 import { SplashScreen } from "@/screens/SplashScreen"
 import { GameStackNavigator } from "./GameStackNavigator"
 import { useLang } from "@/context/LangContext"
@@ -36,7 +35,7 @@ const AppStack = () => {
       initialRouteName="SplashScreen"
     >
       <Stack.Screen name="SplashScreen" component={SplashScreen} />
-      <Stack.Screen name="Steps" component={StepsScreen} />
+      {/* <Stack.Screen name="Steps" component={StepsScreen} /> */}
      </Stack.Navigator>
    )
 }

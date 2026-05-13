@@ -15,8 +15,12 @@ import {
 import { useFrame } from "@react-three/fiber"
 import { RenderTexture } from "@react-three/drei/native"
 import { easing } from "maath"
-import { BOOK_SHEETS } from "./BookContent"
 import { useBookPage } from "./BookPageContext"
+
+export interface BookSheet {
+  frontContent: React.ReactNode
+  backContent: React.ReactNode
+}
 
 // ---------------------------------------------------------------------------
 // Geometry constants
@@ -69,6 +73,7 @@ const pageSideMaterials = [
 // ─── Page ─────────────────────────────────────────────────────────────────────
 interface PageProps {
   number: number
+  totalSheets: number
   frontContent: React.ReactNode
   backContent: React.ReactNode
   page: number           // delayed page index driving the animation
@@ -77,7 +82,7 @@ interface PageProps {
   [key: string]: unknown
 }
 
-const Page = ({ number, frontContent, backContent, page, opened, bookClosed, ...props }: PageProps) => {
+const Page = ({ number, totalSheets, frontContent, backContent, page, opened, bookClosed, ...props }: PageProps) => {
   const groupRef = useRef<any>(null)
   const skinnedMeshRef = useRef<SkinnedMesh | null>(null)
   const turnedAt = useRef(0)
@@ -102,11 +107,11 @@ const Page = ({ number, frontContent, backContent, page, opened, bookClosed, ...
     () =>
       new MeshStandardMaterial({
         color: whiteColor,
-        roughness: number === BOOK_SHEETS.length - 1 ? 0.6 : 0.1,
+        roughness: number === totalSheets - 1 ? 0.6 : 0.1,
         emissive: emissiveColor,
         emissiveIntensity: 0,
       }),
-    [number],
+    [number, totalSheets],
   )
 
   // Build the SkinnedMesh once; reuse the same frontMat/backMat objects so that
@@ -221,6 +226,7 @@ const Page = ({ number, frontContent, backContent, page, opened, bookClosed, ...
         object={skinnedMesh}
         ref={skinnedMeshRef}
         position-z={-number * PAGE_DEPTH + page * PAGE_DEPTH}
+        onPointerDown={(e: any) => e.stopPropagation()}
       />
 
       {/* Front face (+z) — rendered into a 512×682 FBO */}
@@ -238,7 +244,7 @@ const Page = ({ number, frontContent, backContent, page, opened, bookClosed, ...
 
 // ─── Book ─────────────────────────────────────────────────────────────────────
 
-export const Book = ({ ...props }: any) => {
+export const Book = ({ sheets, ...props }: { sheets: BookSheet[]; [key: string]: unknown }) => {
   const { page } = useBookPage()
   const [delayedPage, setDelayedPage] = useState(page)
 
@@ -258,15 +264,16 @@ export const Book = ({ ...props }: any) => {
 
   return (
     <group {...props} rotation-y={Math.PI / 2}>
-      {BOOK_SHEETS.map((sheet, index) => (
+      {sheets.map((sheet, index) => (
         <Page
           key={index}
           number={index}
+          totalSheets={sheets.length}
           frontContent={sheet.frontContent}
           backContent={sheet.backContent}
           page={delayedPage}
           opened={delayedPage > index}
-          bookClosed={delayedPage === 0 || delayedPage === BOOK_SHEETS.length}
+          bookClosed={delayedPage === 0 || delayedPage === sheets.length}
         />
       ))}
     </group>

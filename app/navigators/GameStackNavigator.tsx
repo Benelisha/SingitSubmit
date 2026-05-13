@@ -2,7 +2,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack"
 import { HomeTabsParamList } from "./HomeTabsNavigator"
 import { useAppTheme } from "@/theme/context"
 import { HomeTabsNavigator } from "./HomeTabsNavigator"
-import GameScreen from "@/screens/GameScreen"
+// import GameScreen from "@/screens/GameScreen"
 import StoryScreen from "@/screens/StoryScreen"
 
 export type GameStackParamList = {
@@ -30,7 +30,7 @@ export function GameStackNavigator() {
       initialRouteName="StoryScreen"
       >
        <Stack.Screen name="StoryScreen" component={StoryScreen} />
-       <Stack.Screen name="HomeTabs" component={HomeTabsNavigator} />
+       {/* <Stack.Screen name="HomeTabs" component={HomeTabsNavigator} />
          <Stack.Screen
            name="GameScreen"
            component={GameScreen}
@@ -38,7 +38,7 @@ export function GameStackNavigator() {
              gestureEnabled: false,
              fullScreenGestureEnabled: false,
            }}
-         />
+         /> */}
       </Stack.Navigator>
     )
 }
