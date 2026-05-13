@@ -98,16 +98,17 @@ const CameraRig = ({ page, totalPages }: { page: number; totalPages: number }) =
   const { camera } = useThree()
   useFrame((_, delta) => {
     const isBookClosed = page === 0 || page === totalPages
-    const targetY = isBookClosed ? 1 : 0
-    const targetZ = isBookClosed ? 4 : 2.5
-    easing.damp3(camera.position, [0, targetY, targetZ], 0.4, delta)
+    const targetX = isBookClosed ? 0 : 0
+    const targetY = isBookClosed ? 1.5 : 0
+    const targetZ = isBookClosed ? 3 : 2.5
+    easing.damp3(camera.position, [targetX, targetY, targetZ], 0.4, delta)
     camera.lookAt(0, 0, 0)
   })
   return null
 }
 
 // Wraps the book, animating the tilt and a gentle float bob on cover/back only.
-const BookWrapper = ({ isBookClosed, sheets }: { isBookClosed: boolean; sheets: BookSheet[] }) => {
+const BookWrapper = ({ isBookClosed, sheets, page }: { isBookClosed: boolean; sheets: BookSheet[]; page: number }) => {
   const groupRef = useRef<any>(null)
   useFrame((state, delta) => {
     if (!groupRef.current) return
@@ -118,6 +119,9 @@ const BookWrapper = ({ isBookClosed, sheets }: { isBookClosed: boolean; sheets: 
     } else {
       easing.damp(groupRef.current.position, "y", 0, 0.4, delta)
     }
+    // X: -0.5 on start (page 0), 0.5 on end (last page), 0 while reading
+    const targetX = page === 0 ? -0.5 : page === sheets.length ? 0.5 : 0
+    easing.damp(groupRef.current.position, "x", targetX, 0.4, delta)
   })
   return (
     <group ref={groupRef} rotation-y={Math.PI}>
@@ -148,7 +152,7 @@ export const BookExperience = ({ sheets }: { sheets: BookSheet[] }) => {
       <CameraRig page={page} totalPages={sheets.length} />
 
       {/* Animated book wrapper */}
-      <BookWrapper isBookClosed={isBookClosed} sheets={sheets} />
+      <BookWrapper isBookClosed={isBookClosed} sheets={sheets} page={page} />
     </>
   )
 }

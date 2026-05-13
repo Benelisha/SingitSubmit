@@ -33,9 +33,12 @@ const SEGMENT_WIDTH = PAGE_WIDTH / PAGE_SEGMENTS
 
 const EASING_FACTOR = 0.5
 const EASING_FACTOR_FOLD = 0.3
-const INSIDE_CURVE_STRENGTH = 0.18
-const OUTSIDE_CURVE_STRENGTH = 0.05
-const TURNING_CURVE_STRENGTH = 0.09
+// const INSIDE_CURVE_STRENGTH = 0.18
+// const OUTSIDE_CURVE_STRENGTH = 0.05
+// const TURNING_CURVE_STRENGTH = 0.09
+const INSIDE_CURVE_STRENGTH = 0.2
+const OUTSIDE_CURVE_STRENGTH = 0
+const TURNING_CURVE_STRENGTH = 0
 
 // ---------------------------------------------------------------------------
 // Shared page geometry (built once, reused by every Page)
