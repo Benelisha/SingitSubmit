@@ -8,12 +8,14 @@ import {
   MeshStandardMaterial,
   Skeleton,
   SkinnedMesh,
+  Texture,
   Uint16BufferAttribute,
   Vector3,
 } from "three"
 import { useFrame } from "@react-three/fiber"
+import { RenderTexture } from "@react-three/drei/native"
 import { easing } from "maath"
-import { pages } from "./BookPages"
+import { BOOK_SHEETS } from "./BookContent"
 import { useBookPage } from "./BookPageContext"
 
 // ---------------------------------------------------------------------------
@@ -53,40 +55,62 @@ for (let i = 0; i < pageGeometry.attributes.position.count; i++) {
 pageGeometry.setAttribute("skinIndex", new Uint16BufferAttribute(skinIndexes, 4))
 pageGeometry.setAttribute("skinWeight", new Float32BufferAttribute(skinWeights, 4))
 
-// ---------------------------------------------------------------------------
-// Shared side / edge materials (indices 0-3)
-// ---------------------------------------------------------------------------
+// ─── Shared edge / spine materials (indices 0–3, never modified) ─────────────
 const whiteColor = new Color("white")
 const emissiveColor = new Color("orange")
 
 const pageSideMaterials = [
-  new MeshStandardMaterial({ color: whiteColor }),          // right edge
-  new MeshStandardMaterial({ color: "#111" }),              // left edge (spine)
-  new MeshStandardMaterial({ color: whiteColor }),          // top edge
-  new MeshStandardMaterial({ color: whiteColor }),          // bottom edge
+  new MeshStandardMaterial({ color: whiteColor }),  // +x right edge
+  new MeshStandardMaterial({ color: "#111" }),       // −x spine
+  new MeshStandardMaterial({ color: whiteColor }),  // +y top
+  new MeshStandardMaterial({ color: whiteColor }),  // −y bottom
 ]
 
-// ---------------------------------------------------------------------------
-// Page component
-// ---------------------------------------------------------------------------
+// ─── Page ─────────────────────────────────────────────────────────────────────
 interface PageProps {
   number: number
-  front: string   // hex color for the front face
-  back: string    // hex color for the back face
-  page: number    // currently-displayed page index (delayed)
+  frontContent: React.ReactNode
+  backContent: React.ReactNode
+  page: number           // delayed page index driving the animation
   opened: boolean
   bookClosed: boolean
   [key: string]: unknown
 }
 
-const Page = ({ number, front, back, page, opened, bookClosed, ...props }: PageProps) => {
+const Page = ({ number, frontContent, backContent, page, opened, bookClosed, ...props }: PageProps) => {
   const groupRef = useRef<any>(null)
   const skinnedMeshRef = useRef<SkinnedMesh | null>(null)
   const turnedAt = useRef(0)
   const lastOpened = useRef(opened)
-  const [highlighted, setHighlighted] = useState(false)
+  // Animated curve scale: 1 on cover/back, 0.5 while flipping, eases to 0.02 when settled in read mode
+  const curveScaleRef = useRef(1)
 
-  // Build the skinned mesh once per page (materials depend on front/back colors)
+  // Stable face materials — their `.map` is set imperatively by the RenderTexture
+  // functional `attach` callbacks below.
+  const frontMat = useMemo(
+    () =>
+      new MeshStandardMaterial({
+        color: whiteColor,
+        roughness: number === 0 ? 0.6 : 0.1,
+        emissive: emissiveColor,
+        emissiveIntensity: 0,
+      }),
+    [number],
+  )
+
+  const backMat = useMemo(
+    () =>
+      new MeshStandardMaterial({
+        color: whiteColor,
+        roughness: number === BOOK_SHEETS.length - 1 ? 0.6 : 0.1,
+        emissive: emissiveColor,
+        emissiveIntensity: 0,
+      }),
+    [number],
+  )
+
+  // Build the SkinnedMesh once; reuse the same frontMat/backMat objects so that
+  // when RenderTexture writes to their .map the mesh sees it immediately.
   const skinnedMesh = useMemo(() => {
     const bones: Bone[] = []
     for (let i = 0; i <= PAGE_SEGMENTS; i++) {
@@ -97,42 +121,18 @@ const Page = ({ number, front, back, page, opened, bookClosed, ...props }: PageP
       bones.push(bone)
     }
     const skeleton = new Skeleton(bones)
-
-    const materials = [
-      ...pageSideMaterials,
-      new MeshStandardMaterial({
-        color: new Color(front),
-        roughness: number === 0 ? 0.6 : 0.1,
-        emissive: emissiveColor,
-        emissiveIntensity: 0,
-      }),
-      new MeshStandardMaterial({
-        color: new Color(back),
-        roughness: number === pages.length - 1 ? 0.6 : 0.1,
-        emissive: emissiveColor,
-        emissiveIntensity: 0,
-      }),
-    ]
-
-    const mesh = new SkinnedMesh(pageGeometry, materials)
+    const mesh = new SkinnedMesh(pageGeometry, [...pageSideMaterials, frontMat, backMat])
     mesh.castShadow = true
     mesh.receiveShadow = true
     mesh.frustumCulled = false
     mesh.add(skeleton.bones[0])
     mesh.bind(skeleton)
     return mesh
-  }, [front, back, number])
+  }, [frontMat, backMat])
 
+  // Per-frame: page-curl animation
   useFrame((_, delta) => {
     if (!skinnedMeshRef.current) return
-
-    const mats = skinnedMeshRef.current.material as MeshStandardMaterial[]
-    const targetEmissive = highlighted ? 0.22 : 0
-    mats[4].emissiveIntensity = mats[5].emissiveIntensity = MathUtils.lerp(
-      mats[4].emissiveIntensity,
-      targetEmissive,
-      0.1,
-    )
 
     if (lastOpened.current !== opened) {
       turnedAt.current = Date.now()
@@ -144,6 +144,14 @@ const Page = ({ number, front, back, page, opened, bookClosed, ...props }: PageP
     let targetRotation = opened ? -Math.PI / 2 : Math.PI / 2
     if (!bookClosed) targetRotation += MathUtils.degToRad(number * 0.8)
 
+    // In read mode: ease curl toward 0.02 once the flip animation finishes (~500 ms).
+    // During a flip or when cover/back is showing, restore the normal curl strength.
+    const timeSinceFlip = Date.now() - turnedAt.current
+    const isFlipping = timeSinceFlip < 500
+    const targetCurveScale = bookClosed ? 1.0 : isFlipping ? 0.5 : 0.85
+    // Fast snap back when a flip starts; slow, smooth settle to flat in read mode
+    easing.damp(curveScaleRef, "current", targetCurveScale, isFlipping ? 5 : 0.35, delta)
+
     const bones = skinnedMeshRef.current.skeleton.bones
     for (let i = 0; i < bones.length; i++) {
       const target = i === 0 ? groupRef.current : bones[i]
@@ -153,8 +161,8 @@ const Page = ({ number, front, back, page, opened, bookClosed, ...props }: PageP
       const turningIntensity = Math.sin(i * Math.PI * (1 / bones.length)) * turningTime
 
       let rotationAngle =
-        INSIDE_CURVE_STRENGTH * insideCurve * targetRotation -
-        OUTSIDE_CURVE_STRENGTH * outsideCurve * targetRotation +
+        INSIDE_CURVE_STRENGTH * curveScaleRef.current * insideCurve * targetRotation -
+        OUTSIDE_CURVE_STRENGTH * curveScaleRef.current * outsideCurve * targetRotation +
         TURNING_CURVE_STRENGTH * turningIntensity * targetRotation
 
       let foldAngle = MathUtils.degToRad(Math.sin(targetRotation) * 2)
@@ -168,53 +176,73 @@ const Page = ({ number, front, back, page, opened, bookClosed, ...props }: PageP
 
       const foldIntensity =
         i > 8 ? Math.sin(i * Math.PI * (1 / bones.length) - 0.5) * turningTime : 0
-      easing.dampAngle(
-        target.rotation,
-        "x",
-        foldAngle * foldIntensity,
-        EASING_FACTOR_FOLD,
-        delta,
-      )
+      easing.dampAngle(target.rotation, "x", foldAngle * foldIntensity, EASING_FACTOR_FOLD, delta)
     }
   })
 
-  const { setPage } = useBookPage()
+  const { setPage: _setPage } = useBookPage()
+  void _setPage // kept for portal children (BookContent buttons use context directly)
+
+  // Functional `attach` callbacks: R3F calls attach(parent, self) where
+  // self = the FBO texture exposed by RenderTexture. We write it to the face material.
+  const attachFront = useMemo(
+    () =>
+      (_parent: any, self: Texture) => {
+        frontMat.map = self
+        frontMat.needsUpdate = true
+        return () => {
+          frontMat.map = null
+          frontMat.needsUpdate = true
+        }
+      },
+    [frontMat],
+  )
+
+  const attachBack = useMemo(
+    () =>
+      (_parent: any, self: Texture) => {
+        backMat.map = self
+        backMat.needsUpdate = true
+        return () => {
+          backMat.map = null
+          backMat.needsUpdate = true
+        }
+      },
+    [backMat],
+  )
 
   return (
     <group
       {...props}
       ref={groupRef}
-      onPointerEnter={(e: any) => {
-        e.stopPropagation()
-        setHighlighted(true)
-      }}
-      onPointerLeave={(e: any) => {
-        e.stopPropagation()
-        setHighlighted(false)
-      }}
-      onClick={(e: any) => {
-        e.stopPropagation()
-        setPage(opened ? number : number + 1)
-        setHighlighted(false)
-      }}
     >
+      {/* The animated page leaf */}
       <primitive
         object={skinnedMesh}
         ref={skinnedMeshRef}
         position-z={-number * PAGE_DEPTH + page * PAGE_DEPTH}
       />
+
+      {/* Front face (+z) — rendered into a 512×682 FBO */}
+      <RenderTexture attach={attachFront as any} width={512} height={682}>
+        {frontContent}
+      </RenderTexture>
+
+      {/* Back face (−z) — rendered into a 512×682 FBO */}
+      <RenderTexture attach={attachBack as any} width={512} height={682}>
+        {backContent}
+      </RenderTexture>
     </group>
   )
 }
 
-// ---------------------------------------------------------------------------
-// Book component  – wraps all Page leaves
-// ---------------------------------------------------------------------------
+// ─── Book ─────────────────────────────────────────────────────────────────────
+
 export const Book = ({ ...props }: any) => {
   const { page } = useBookPage()
   const [delayedPage, setDelayedPage] = useState(page)
 
-  // Step one page at a time so the flip animation plays for every leaf
+  // Step one leaf at a time so every flip animation plays
   useEffect(() => {
     let timeout: ReturnType<typeof setTimeout>
     const goToPage = () => {
@@ -230,15 +258,15 @@ export const Book = ({ ...props }: any) => {
 
   return (
     <group {...props} rotation-y={Math.PI / 2}>
-      {pages.map((pageData, index) => (
+      {BOOK_SHEETS.map((sheet, index) => (
         <Page
           key={index}
           number={index}
-          front={pageData.front}
-          back={pageData.back}
+          frontContent={sheet.frontContent}
+          backContent={sheet.backContent}
           page={delayedPage}
           opened={delayedPage > index}
-          bookClosed={delayedPage === 0 || delayedPage === pages.length}
+          bookClosed={delayedPage === 0 || delayedPage === BOOK_SHEETS.length}
         />
       ))}
     </group>

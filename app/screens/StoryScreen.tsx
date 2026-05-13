@@ -15,13 +15,13 @@ function StoryScreenInner() {
 
     return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>
-            <View style={styles.copyBlock}>
+            {/* <View style={styles.copyBlock}>
                 <Text style={[styles.eyebrow, { color: colors.tint }]}>StoryScreen</Text>
                 <Text style={[styles.title, { color: colors.text }]}>Procedural book cover</Text>
-            </View>
+            </View> */}
 
             <View style={styles.canvasShell}>
-                <Canvas shadows camera={{ position: [-0.5, 1, 4], fov: 45 }}>
+                <Canvas shadows camera={{ position: [-0.5, 1, 4], fov: 45, near: 0.1, far: 100 }}>
                     <color attach="background" args={[colors.background]} />
                     <fog attach="fog" args={[colors.background, 7.8, 12.8]} />
                     <BookExperience />
@@ -66,7 +66,7 @@ export default function StoryScreen() {
 const styles = StyleSheet.create({
     canvasShell: {
         flex: 1,
-        overflow: "hidden",
+        padding: "5%",
     },
     container: {
         flex: 1,
